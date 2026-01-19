@@ -9,10 +9,10 @@ Example:
     python extract_pois.py 25.166974 55.259068 --radius 20 --output nearby_places.csv
 """
 
-import argparse
 import sys
 from pathlib import Path
 
+import click
 import duckdb
 import geopandas as gpd
 import pandas as pd
@@ -101,12 +101,12 @@ def load_overture_data(db_path='overture_uae.duckdb', force_reload=False, s3_pat
     has_data = any('uae_places' in str(t) for t in tables)
     
     if has_data and not force_reload:
-        print(f"Loading cached data from {db_path}...")
+        click.echo(f"Loading cached data from {db_path}...")
         return con
-    
-    print("Downloading Overture Maps data from S3...")
-    print("This may take a few minutes on first run...")
-    
+
+    click.echo("Downloading Overture Maps data from S3...")
+    click.echo("This may take a few minutes on first run...")
+
     con.execute("INSTALL spatial")
     con.execute("INSTALL httpfs")
     con.execute("LOAD spatial")
@@ -115,9 +115,9 @@ def load_overture_data(db_path='overture_uae.duckdb', force_reload=False, s3_pat
     
     if s3_path is None:
         s3_path = 's3://overturemaps-us-west-2/release/2025-12-17.0/theme=places/type=place/*.parquet'
-    
-    print(f"Using S3 path: {s3_path}")
-    
+
+    click.echo(f"Using S3 path: {s3_path}")
+
     query = f"""
     CREATE OR REPLACE TABLE uae_places AS
     SELECT
@@ -144,8 +144,8 @@ def load_overture_data(db_path='overture_uae.duckdb', force_reload=False, s3_pat
     con.execute(query)
     
     count = con.execute("SELECT COUNT(*) FROM uae_places").fetchone()[0]
-    print(f"Cached {count:,} places to {db_path}")
-    
+    click.echo(f"Cached {count:,} places to {db_path}")
+
     return con
 
 
@@ -170,9 +170,9 @@ def extract_nearby_places(lat, lon, radius_km=20, db_path='overture_uae.duckdb',
         GeoDataFrame with nearby places and calculated distances
     """
     con = load_overture_data(db_path, s3_path=s3_path)
-    
-    print(f"\nSearching for places within {radius_km}km of ({lat}, {lon})...")
-    
+
+    click.echo(f"\nSearching for places within {radius_km}km of ({lat}, {lon})...")
+
     uae_places = con.execute("SELECT * FROM uae_places").df()
     con.close()
     
@@ -182,9 +182,9 @@ def extract_nearby_places(lat, lon, radius_km=20, db_path='overture_uae.duckdb',
     gdf = gpd.GeoDataFrame(uae_places, geometry='geometry', crs='EPSG:4326')
     
     target_point = Point(lon, lat)
-    
-    print("Calculating distances...")
-    
+
+    click.echo("Calculating distances...")
+
     gdf_metric = gdf.to_crs('EPSG:3857')
     target_metric = gpd.GeoSeries([target_point], crs='EPSG:4326').to_crs('EPSG:3857')[0]
     gdf_metric['euclidean_m'] = gdf_metric.geometry.distance(target_metric)
@@ -198,73 +198,61 @@ def extract_nearby_places(lat, lon, radius_km=20, db_path='overture_uae.duckdb',
     nearby['euclidean_km'] = (nearby['euclidean_m'] / 1000).round(2)
     nearby['haversine_km'] = (nearby['haversine_m'] / 1000).round(2)
     nearby = nearby.sort_values('haversine_m')
-    
-    print("Categorizing places...")
+
+    click.echo("Categorizing places...")
     nearby['master_category'] = nearby['primary_category'].apply(categorize_place)
     
     nearby['lat'] = nearby['geometry'].apply(lambda x: x.y)
     nearby['lon'] = nearby['geometry'].apply(lambda x: x.x)
-    
-    print(f"\nFound {len(nearby):,} places within {radius_km}km")
-    print("\n=== CATEGORY BREAKDOWN ===")
-    print(nearby['master_category'].value_counts())
-    
+
+    click.echo(f"\nFound {len(nearby):,} places within {radius_km}km")
+    click.echo("\n=== CATEGORY BREAKDOWN ===")
+    click.echo(nearby['master_category'].value_counts())
+
     return nearby
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='Extract POIs from Overture Maps near a location',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python extract_pois.py 25.166974 55.259068
-  python extract_pois.py 25.166974 55.259068 --radius 10
-  python extract_pois.py 25.166974 55.259068 --radius 20 --output my_places.csv
-  python extract_pois.py 25.166974 55.259068 --reload
-        """
-    )
-    
-    parser.add_argument('latitude', type=float, help='Target latitude')
-    parser.add_argument('longitude', type=float, help='Target longitude')
-    parser.add_argument('-r', '--radius', type=float, default=20,
-                        help='Search radius in kilometers (default: 20)')
-    parser.add_argument('-o', '--output', type=str, default='nearby_places.csv',
-                        help='Output CSV filename (default: nearby_places.csv)')
-    parser.add_argument('-d', '--database', type=str, default='overture_uae.duckdb',
-                        help='DuckDB cache file path (default: overture_uae.duckdb)')
-    parser.add_argument('--s3-path', type=str, default=None,
-                        help='Override S3 path for Overture Maps data (e.g., s3://overturemaps-us-west-2/release/YYYY-MM-DD.0/theme=places/type=place/*.parquet)')
-    parser.add_argument('--reload', action='store_true',
-                        help='Force reload data from S3 (ignore cache)')
-    
-    args = parser.parse_args()
-    
-    if not -90 <= args.latitude <= 90:
-        print(f"Error: Invalid latitude {args.latitude}. Must be between -90 and 90.")
-        sys.exit(1)
-    
-    if not -180 <= args.longitude <= 180:
-        print(f"Error: Invalid longitude {args.longitude}. Must be between -180 and 180.")
-        sys.exit(1)
-    
-    if args.radius <= 0:
-        print(f"Error: Invalid radius {args.radius}. Must be greater than 0.")
-        sys.exit(1)
-    
-    if args.reload:
-        db_file = Path(args.database)
+@click.command()
+@click.argument('latitude', type=float, metavar="<latitude>")
+@click.argument('longitude', type=float, metavar="<longitude>")
+@click.option("-r", "--radius", type=float, default=20, show_default=True, help="Search radius in kilometers")
+@click.option("-o", "--output", type=click.Path(dir_okay=False, writable=True), default="nearby_places.csv", show_default=True, help="Output CSV filename")
+@click.option("-d", "--database", type=click.Path(dir_okay=False), default='overture_uae.duckdb', show_default=True, help='DuckDB cache file path')
+@click.option("-s3", "--s3-path", type=str, help='Override S3 path for Overture Maps data (e.g., s3://overturemaps-us-west-2/release/YYYY-MM-DD.0/theme=places/type=place/*.parquet)')
+@click.option("--reload", is_flag=True, help="Force reload data from S3 (ignore cache)")
+def main(latitude, longitude, radius, output, database, s3_path, reload, max_content_width = 120):
+    """
+    Extract POIs from Overture Maps near a location
+
+    \b
+    python extract_pois.py 25.166974 55.259068
+    python extract_pois.py 25.166974 55.259068 --radius 10
+    python extract_pois.py 25.166974 55.259068 --radius 20 --output my_places.csv
+    python extract_pois.py 25.166974 55.259068 --reload
+    """
+
+    if not -90 <= latitude <= 90:
+        raise click.BadParameter(f"Latitude must be between -90 and 90 (got {latitude})")
+
+    if not -180 <= longitude <= 180:
+        raise click.BadParameter(f"Longitude must be between -180 and 180 (got {longitude})")
+
+    if radius <= 0:
+        raise click.BadParameter(f"Radius must be greater than 0 (got {radius})")
+
+    if reload:
+        db_file = Path(database)
         if db_file.exists():
-            print(f"Removing existing cache: {args.database}")
+            click.echo(f"Removing existing cache: {database}")
             db_file.unlink()
     
     try:
         nearby = extract_nearby_places(
-            args.latitude,
-            args.longitude,
-            args.radius,
-            args.database,
-            args.s3_path
+            latitude,
+            longitude,
+            radius,
+            database,
+            s3_path
         )
         
         output_columns = [
@@ -280,17 +268,16 @@ Examples:
             'euclidean_m',
             'alternate_categories'
         ]
-        
+
         output_df = nearby[output_columns]
-        output_df.to_csv(args.output, index=False)
-        
-        print(f"\n✓ Saved {len(output_df):,} places to {args.output}")
-        print(f"\nTop 10 nearest places:")
-        print(output_df[['primary_name', 'master_category', 'haversine_km', 'euclidean_km']].head(10).to_string(index=False))
-        
+        output_df.to_csv(output, index=False)
+
+        click.echo(f"\n✓ Saved {len(output_df):,} places to {output}")
+        click.echo(f"\nTop 10 nearest places:")
+        click.echo(output_df[['primary_name', 'master_category', 'haversine_km', 'euclidean_km']].head(10).to_string(index=False))
+
     except Exception as e:
-        print(f"\nError: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise click.ClickException(str(e))
 
 
 if __name__ == '__main__':
