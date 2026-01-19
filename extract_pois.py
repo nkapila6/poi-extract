@@ -272,8 +272,7 @@ def main(latitude, longitude, radius, output, database, s3_path, reload, max_con
         click.echo(output_df[['primary_name', 'master_category', 'haversine_km', 'euclidean_km']].head(10).to_string(index=False))
 
     except Exception as e:
-        click.echo(f"\nError: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise click.ClickException(str(e))
 
 
 if __name__ == '__main__':
