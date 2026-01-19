@@ -3,7 +3,7 @@ name = "poi-extract"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = "~=3.11.14"
 dependencies = [
     "duckdb>=1.4.3",
     "duckdb-engine>=0.17.0",

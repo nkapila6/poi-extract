@@ -2,7 +2,6 @@
 
 Extract Points of Interest (POIs) from Overture Maps data for any location in Dubai.
 
-
 To get started, use `uv sync` after cloning the repository or any other python dependency manager that supports pyproject.toml.
 
 ## Usage
@@ -45,6 +44,7 @@ The script generates a CSV with the following columns:
 ## Master Categories
 
 Places are automatically categorized into:
+
 - **residential**: Apartments, housing, condominiums
 - **commercial**: Offices, businesses, real estate
 - **restaurant**: All food & beverage establishments
@@ -60,15 +60,15 @@ Places are automatically categorized into:
 - **landmark**: Tourist attractions, monuments
 - **other**: Uncategorized places
 
-Some of these may be out of date so and the categorization may not be entirely accurate but I tried to do my best with whatever I can.
+Some of these may be out of date so the categorization may not be entirely accurate but I tried to do my best with whatever I can.
 
 ## Data Source
+
 - [Overture Maps Foundation](https://overturemaps.org/)
 
 ## Notes
 
 - Distance calculations use Haversine formula (accurate for spherical Earth)
 - Overture data may differ from Google Maps (different sources)
-- Data is cached in `overture_dubai.duckdb` (~300MB)
+- Data is cached in `overture_dubai.duckdb` (~6MB since we fetch out UAE bounding box from `gcc_states`)
 - Use `--reload` to refresh data from S3
-
