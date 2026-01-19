@@ -9,7 +9,6 @@ dependencies = [
     "duckdb-engine>=0.17.0",
     "geopandas>=1.1.2",
     "geopy>=2.4.1",
-    "jupysql>=0.11.1",
     "pandas>=2.3.3",
     "pyrosm>=0.6.2",
     "shapely>=2.1.2",
