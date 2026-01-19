@@ -84,7 +84,7 @@ def categorize_place(category):
         return 'other'
 
 
-def load_overture_data(db_path='overture_dubai.duckdb', force_reload=False, s3_path=None):
+def load_overture_data(db_path='overture_uae.duckdb', force_reload=False, s3_path=None):
     """
     Load Overture Maps data for Dubai region.
     Uses cached DuckDB file if available, otherwise downloads from S3.
@@ -98,7 +98,7 @@ def load_overture_data(db_path='overture_dubai.duckdb', force_reload=False, s3_p
     con = duckdb.connect(str(db_file))
     
     tables = con.execute("SHOW TABLES").fetchall()
-    has_data = any('dubai_places' in str(t) for t in tables)
+    has_data = any('uae_places' in str(t) for t in tables)
     
     if has_data and not force_reload:
         print(f"Loading cached data from {db_path}...")
@@ -119,7 +119,7 @@ def load_overture_data(db_path='overture_dubai.duckdb', force_reload=False, s3_p
     print(f"Using S3 path: {s3_path}")
     
     query = f"""
-    CREATE OR REPLACE TABLE dubai_places AS
+    CREATE OR REPLACE TABLE uae_places AS
     SELECT
         id,
         names.primary AS primary_name,
@@ -130,15 +130,20 @@ def load_overture_data(db_path='overture_dubai.duckdb', force_reload=False, s3_p
     FROM
         read_parquet('{s3_path}', filename=true, hive_partitioning=1)
     WHERE
-        bbox.xmin >= 54.9
-        and bbox.xmax <= 55.6
-        and bbox.ymin >= 24.7
-        and bbox.ymax <= 25.4
+    bbox.xmin >= 51.58
+    and bbox.xmax <= 56.40
+    and bbox.ymin >= 22.50
+    and bbox.ymax <= 26.06
     """
+    #     bbox.xmin >= 54.9
+    #     and bbox.xmax <= 55.6
+    #     and bbox.ymin >= 24.7
+    #     and bbox.ymax <= 25.4
+    # """
     
     con.execute(query)
     
-    count = con.execute("SELECT COUNT(*) FROM dubai_places").fetchone()[0]
+    count = con.execute("SELECT COUNT(*) FROM uae_places").fetchone()[0]
     print(f"Cached {count:,} places to {db_path}")
     
     return con
@@ -150,7 +155,7 @@ def haversine_distance(geom, target_lat, target_lon):
     return geodesic((point_lat, point_lon), (target_lat, target_lon)).meters
 
 
-def extract_nearby_places(lat, lon, radius_km=20, db_path='overture_dubai.duckdb', s3_path=None):
+def extract_nearby_places(lat, lon, radius_km=20, db_path='overture_uae.duckdb', s3_path=None):
     """
     Extract places near a given location.
     
@@ -168,13 +173,13 @@ def extract_nearby_places(lat, lon, radius_km=20, db_path='overture_dubai.duckdb
     
     print(f"\nSearching for places within {radius_km}km of ({lat}, {lon})...")
     
-    dubai_places = con.execute("SELECT * FROM dubai_places").df()
+    uae_places = con.execute("SELECT * FROM uae_places").df()
     con.close()
     
-    print(f"Loaded {len(dubai_places):,} places from cache")
+    print(f"Loaded {len(uae_places):,} places from cache")
     
-    dubai_places['geometry'] = dubai_places['geometry'].apply(wkt.loads)
-    gdf = gpd.GeoDataFrame(dubai_places, geometry='geometry', crs='EPSG:4326')
+    uae_places['geometry'] = uae_places['geometry'].apply(wkt.loads)
+    gdf = gpd.GeoDataFrame(uae_places, geometry='geometry', crs='EPSG:4326')
     
     target_point = Point(lon, lat)
     
@@ -226,8 +231,8 @@ Examples:
                         help='Search radius in kilometers (default: 20)')
     parser.add_argument('-o', '--output', type=str, default='nearby_places.csv',
                         help='Output CSV filename (default: nearby_places.csv)')
-    parser.add_argument('-d', '--database', type=str, default='overture_dubai.duckdb',
-                        help='DuckDB cache file path (default: overture_dubai.duckdb)')
+    parser.add_argument('-d', '--database', type=str, default='overture_uae.duckdb',
+                        help='DuckDB cache file path (default: overture_uae.duckdb)')
     parser.add_argument('--s3-path', type=str, default=None,
                         help='Override S3 path for Overture Maps data (e.g., s3://overturemaps-us-west-2/release/YYYY-MM-DD.0/theme=places/type=place/*.parquet)')
     parser.add_argument('--reload', action='store_true',
