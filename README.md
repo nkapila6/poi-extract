@@ -1,6 +1,6 @@
 # poi-extract
 
-Extract Points of Interest (POIs) from Overture Maps data for any location in Dubai.
+Extract Points of Interest (POIs) from Overture Maps data for any location in the UAE.
 
 To get started, use `uv sync` after cloning the repository or any other python dependency manager that supports pyproject.toml.
 
@@ -27,6 +27,11 @@ python extract_pois.py 25.166974 55.259068     --s3-path 's3://overturemaps-us-w
 # All options
 python extract_pois.py 25.166974 55.259068     --radius 15     --output nearby.csv     --database custom_cache.duckdb     --s3-path 's3://overturemaps-us-west-2/release/2026-01-15.0/theme=places/type=place/*.parquet'
 ```
+
+To get the URL for the s3 path flag, you need to fetch the link from: [https://docs.overturemaps.org/getting-data/](https://docs.overturemaps.org/getting-data/). 
+
+<img width="600" height="527" alt="image" src="https://github.com/user-attachments/assets/cd97e9d7-0220-446c-bdb6-d015beef119b" />
+
 
 ## Output Format
 
